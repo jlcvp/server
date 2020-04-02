@@ -598,7 +598,7 @@ bool IOLoginData::loadPlayer(Player* player, DBResult_ptr result)
 	//load preydata
 	query.str(std::string());
 	query << "SELECT `data` FROM `player_preydata` WHERE `player_id` = " << player->getGUID();
-	if ((result = db.storeQuery(query.str()))) {
+	if ((result = g_database.storeQuery(query.str()))) {
 		std::vector<PreyData> preyData(3);
 		loadPreyData(preyData, result);
 		player->setPreyData(std::move(preyData));
