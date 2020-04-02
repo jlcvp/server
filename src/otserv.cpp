@@ -35,6 +35,7 @@
 #include "scheduler.h"
 #include "databasetasks.h"
 #include "script.h"
+#include "prey.h"
 #include <fstream>
 
 Database g_database;
@@ -48,6 +49,7 @@ Monsters g_monsters;
 Vocations g_vocations;
 extern Scripts* g_scripts;
 RSA g_RSA;
+Prey g_prey;
 
 std::mutex g_loaderLock;
 std::condition_variable g_loaderSignal;
@@ -236,6 +238,12 @@ void mainLoader(int, char*[], ServiceManager* services)
 	std::cout << ">> Loading outfits" << std::endl;
 	if (!Outfits::getInstance().loadFromXml()) {
 		startupErrorMessage("Unable to load outfits!");
+		return;
+	}
+
+	std::cout << ">> Loading prey data" << std::endl;
+	if (!g_prey.loadFromXml()) {
+		startupErrorMessage("Unable to load prey data!");
 		return;
 	}
 

@@ -42,6 +42,7 @@ extern CreatureEvents* g_creatureEvents;
 extern Chat* g_chat;
 extern Spells* g_spells;
 extern Monsters g_monsters;
+extern Prey g_prey;
 
 NetworkMessage ProtocolGame::playermsg;
 
@@ -268,7 +269,7 @@ void ProtocolGame::onRecvFirstMessage(NetworkMessage& msg)
 		disconnect();
 		return;
 	}
-	
+
 	uint32_t key[4] = {msg.get<uint32_t>(), msg.get<uint32_t>(), msg.get<uint32_t>(), msg.get<uint32_t>()};
 	enableXTEAEncryption();
 	setXTEAKey(key);
@@ -518,6 +519,8 @@ void ProtocolGame::parsePacket(NetworkMessage& msg)
 		case 0xF7: parseMarketCancelOffer(msg); break;
 		case 0xF8: parseMarketAcceptOffer(msg); break;
 		case 0xF9: parseModalWindowAnswer(msg); break;
+		case 0xED: parseRequestResourceData(msg); break;
+		case 0xEB: parsePreyAction(msg); break;
 
 		default:
 			// std::cout << "Player: " << player->getName() << " sent an unknown packet header: 0x" << std::hex << static_cast<uint16_t>(recvbyte) << std::dec << "!" << std::endl;
@@ -1257,6 +1260,33 @@ void ProtocolGame::parseSeekInContainer(NetworkMessage& msg)
 	uint8_t containerId = msg.getByte();
 	uint16_t index = msg.get<uint16_t>();
 	addGameTask(&Game::playerSeekInContainer, player->getID(), containerId, index);
+}
+
+// Prey System
+void ProtocolGame::parseRequestResourceData(NetworkMessage& msg)
+{
+	ResourceType_t resourceType = static_cast<ResourceType_t>(msg.getByte());
+	addGameTask(&Game::playerRequestResourceData, player->getID(), resourceType);
+}
+
+void ProtocolGame::parsePreyAction(NetworkMessage& msg)
+{
+	uint8_t preySlotId = msg.getByte();
+	PreyAction_t preyAction = static_cast<PreyAction_t>(msg.getByte());
+	uint8_t monsterIndex = 0;
+	if (preyAction == PREY_ACTION_MONSTERSELECTION) {
+		monsterIndex = msg.getByte();
+	}
+	addGameTask(&Game::playerPreyAction, player->getID(), preySlotId, preyAction, monsterIndex);
+}
+
+void ProtocolGame::sendResourceData(ResourceType_t resourceType, int64_t amount)
+{
+	NetworkMessage msg;
+	msg.addByte(0xEE);
+	msg.addByte(resourceType);
+	msg.add<int64_t>(amount);
+	writeToOutputBuffer(msg);
 }
 
 // Send methods
@@ -2044,6 +2074,7 @@ void ProtocolGame::sendBasicData()
 		playermsg.add<uint32_t>(0);
 	}
 	playermsg.addByte(player->getVocation()->getClientId());
+	playermsg.addByte(1);
 	if (version >= 1100) {
 		playermsg.addByte(((player->getVocation()->getId() != 0) ? 0x01 : 0x00));
 	}
@@ -2107,6 +2138,103 @@ void ProtocolGame::sendGameNews()
 	playermsg.add<uint32_t>(0x01); // unknown
 	playermsg.addByte(1); //(0 = open | 1 = highlight)
 	writeToOutputBuffer(playermsg);
+}
+
+void ProtocolGame::sendPreyData(uint8_t preySlotId)
+{
+	if (preySlotId >= PREY_SLOTCOUNT) {
+		return;
+	}
+
+	NetworkMessage msg;
+	PreyData& currentPreyData = player->preyData[preySlotId];
+	msg.addByte(0xE8);
+	msg.addByte(preySlotId);
+	msg.addByte(currentPreyData.state);
+	if (currentPreyData.state == STATE_LOCKED) {
+		msg.addByte(UNLOCK_STORE);
+	} else if (currentPreyData.state == STATE_SELECTION || currentPreyData.state == STATE_SELECTION_CHANGE_MONSTER) {
+		if (currentPreyData.state == STATE_SELECTION_CHANGE_MONSTER) {
+			msg.addByte(static_cast<uint8_t>(currentPreyData.bonusType));
+			msg.add<uint16_t>(currentPreyData.bonusValue);
+			msg.addByte(currentPreyData.bonusGrade);
+		}
+		msg.addByte(currentPreyData.preyList.size());
+		for (const std::string& preyName : currentPreyData.preyList) {
+			msg.addString(preyName);
+			if (MonsterType* mType = g_monsters.getMonsterType(preyName)) {
+				msg.add<uint16_t>(mType->info.outfit.lookType);
+				msg.addByte(mType->info.outfit.lookHead);
+				msg.addByte(mType->info.outfit.lookBody);
+				msg.addByte(mType->info.outfit.lookLegs);
+				msg.addByte(mType->info.outfit.lookFeet);
+				msg.addByte(mType->info.outfit.lookAddons);
+			} else {
+				msg.add<uint16_t>(0);
+				msg.add<uint16_t>(0);
+			}
+		}
+	} else if (currentPreyData.state == STATE_ACTIVE) {
+		msg.addString(currentPreyData.preyMonster);
+		if (MonsterType* mType = g_monsters.getMonsterType(currentPreyData.preyMonster)) {
+			msg.add<uint16_t>(mType->info.outfit.lookType);
+			msg.addByte(mType->info.outfit.lookHead);
+			msg.addByte(mType->info.outfit.lookBody);
+			msg.addByte(mType->info.outfit.lookLegs);
+			msg.addByte(mType->info.outfit.lookFeet);
+			msg.addByte(mType->info.outfit.lookAddons);
+		} else {
+			msg.add<uint16_t>(0);
+			msg.add<uint16_t>(0);
+		}
+
+		msg.addByte(static_cast<uint8_t>(currentPreyData.bonusType));
+		msg.add<uint16_t>(currentPreyData.bonusValue);
+		msg.addByte(currentPreyData.bonusGrade);
+	msg.add<uint16_t>(currentPreyData.timeLeft);
+	}
+
+	msg.add<uint16_t>(player->getFreeRerollTime(preySlotId));
+	writeToOutputBuffer(msg);
+}
+
+void ProtocolGame::sendRerollPrice(uint32_t price)
+{
+	NetworkMessage msg;
+	msg.addByte(0xE9);
+	msg.add<uint32_t>(price);
+
+	writeToOutputBuffer(msg);
+}
+
+void ProtocolGame::sendFreeListRerollAvailability(uint8_t preySlotId, uint16_t time)
+{
+	NetworkMessage msg;
+	msg.addByte(0xE6);
+	msg.add<uint8_t>(preySlotId);
+	msg.add<uint16_t>(time);
+
+	writeToOutputBuffer(msg);
+}
+
+void ProtocolGame::sendPreyTimeLeft(uint8_t preySlotId, uint16_t timeLeft)
+{
+	NetworkMessage msg;
+	msg.addByte(0xE7);
+	msg.add<uint8_t>(preySlotId);
+	msg.add<uint16_t>(timeLeft);
+
+	writeToOutputBuffer(msg);
+}
+
+void ProtocolGame::sendMessageDialog(MessageDialog_t type, const std::string& message)
+{
+	NetworkMessage msg;
+	msg.addByte(0xED);
+	msg.addByte(type);
+	msg.addString(message);
+
+	writeToOutputBuffer(msg);
 }
 
 void ProtocolGame::sendTextMessage(const TextMessage& message)
@@ -2881,7 +3009,7 @@ void ProtocolGame::sendCreatureTurn(const Creature* creature, uint32_t stackPos)
 	if (!canSee(creature)) {
 		return;
 	}
-	
+
 	playermsg.reset();
 	playermsg.addByte(0x6B);
 	playermsg.addPosition(creature->getPosition());
@@ -3253,6 +3381,11 @@ void ProtocolGame::sendAddCreature(const Creature* creature, const Position& pos
 		sendClientCheck();
 		sendGameNews();
 	}
+
+	for (uint8_t preySlotId = 0; preySlotId < PREY_SLOTCOUNT; preySlotId++) {
+		sendPreyData(preySlotId);
+	}
+	player->updateRerollPrice();
 	player->sendIcons();
 }
 
