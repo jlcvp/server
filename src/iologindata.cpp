@@ -762,7 +762,7 @@ void IOLoginData::loadPreyData(std::vector<PreyData>& preyData, DBResult_ptr res
 
 bool IOLoginData::savePreyData(const Player* player)
 {
-	Database& g_database = Database::getInstance();
+	Database& db = Database::getInstance();
 
 	PropWriteStream propWriteStream;
 	player->serializePreyData(propWriteStream);
@@ -773,7 +773,7 @@ bool IOLoginData::savePreyData(const Player* player)
 	std::ostringstream ss;
 	DBInsert preyQuery("INSERT INTO `player_preydata` (`player_id`, `data`) VALUES ");
 
-	ss << player->getGUID() << ',' << db.escapeBlob(data, dataSize);
+	ss << player->getGUID() << ',' << g_database.escapeBlob(data, dataSize);
 	preyQuery.addRow(ss);
 	return preyQuery.execute();
 }
