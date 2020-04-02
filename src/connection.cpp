@@ -304,7 +304,7 @@ void Connection::parsePacket(const boost::system::error_code& error)
 			std::cout << "[Network protection] - attack detected. IP: ["<< convertIPToString(getIP())<< "] - disconnected" << std::endl;
 			close(FORCE_CLOSE);
 		} else {
-			protocol->onRecvMessage(msg); // Send the packet to the current protocol
+			protocol->onRecvMessage(msg);	// Send the packet to the current protocol
 		}
 	}
 
