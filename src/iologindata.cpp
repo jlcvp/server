@@ -949,7 +949,7 @@ bool IOLoginData::savePlayer(Player* player)
 
 	query.str(std::string());
 	query << "DELETE FROM `player_preydata` WHERE `player_id` = " << player->getGUID();
-	if (!db.executeQuery(query.str())) {
+	if (!g_database.executeQuery(query.str())) {
 		return false;
 	}
 
