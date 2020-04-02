@@ -762,7 +762,7 @@ void IOLoginData::loadPreyData(std::vector<PreyData>& preyData, DBResult_ptr res
 
 bool IOLoginData::savePreyData(const Player* player)
 {
-	Database& db = Database::getInstance();
+	Database& g_database = Database::getInstance();
 
 	PropWriteStream propWriteStream;
 	player->serializePreyData(propWriteStream);
