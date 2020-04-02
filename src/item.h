@@ -1,6 +1,6 @@
 /**
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -102,7 +102,8 @@ enum AttrTypes_t {
 	ATTR_ARMOR = 31,
 	ATTR_HITCHANCE = 32,
 	ATTR_SHOOTRANGE = 33,
-	ATTR_CUSTOM_ATTRIBUTES = 34
+	ATTR_CUSTOM_ATTRIBUTES = 34,
+	ATTR_WRAPID = 35
 };
 
 enum Attr_ReadValue {
@@ -476,8 +477,7 @@ class ItemAttributes
 
 	public:
 		static bool isIntAttrType(itemAttrTypes type) {
-			std::underlying_type<itemAttrTypes>::type checkTypes = 0;
-			checkTypes |= ITEM_ATTRIBUTE_ACTIONID;
+			std::underlying_type<itemAttrTypes>::type checkTypes = ITEM_ATTRIBUTE_ACTIONID;
 			checkTypes |= ITEM_ATTRIBUTE_UNIQUEID;
 			checkTypes |= ITEM_ATTRIBUTE_DATE;
 			checkTypes |= ITEM_ATTRIBUTE_WEIGHT;
@@ -494,11 +494,11 @@ class ItemAttributes
 			checkTypes |= ITEM_ATTRIBUTE_CHARGES;
 			checkTypes |= ITEM_ATTRIBUTE_FLUIDTYPE;
 			checkTypes |= ITEM_ATTRIBUTE_DOORID;
+			checkTypes |= ITEM_ATTRIBUTE_WRAPID;
 			return (type & static_cast<itemAttrTypes>(checkTypes)) != 0;
 		}
 		static bool isStrAttrType(itemAttrTypes type) {
-			std::underlying_type<itemAttrTypes>::type checkTypes = 0;
-			checkTypes |= ITEM_ATTRIBUTE_DESCRIPTION;
+			std::underlying_type<itemAttrTypes>::type checkTypes = ITEM_ATTRIBUTE_DESCRIPTION;
 			checkTypes |= ITEM_ATTRIBUTE_TEXT;
 			checkTypes |= ITEM_ATTRIBUTE_WRITER;
 			checkTypes |= ITEM_ATTRIBUTE_NAME;
@@ -507,7 +507,8 @@ class ItemAttributes
 			return (type & static_cast<itemAttrTypes>(checkTypes)) != 0;
 		}
 		inline static bool isCustomAttrType(itemAttrTypes type) {
-			return (type & ITEM_ATTRIBUTE_CUSTOM) != 0;
+			std::underlying_type<itemAttrTypes>::type checkTypes = ITEM_ATTRIBUTE_CUSTOM;
+			return (type & static_cast<itemAttrTypes>(checkTypes)) != 0;
 		}
 
 		const std::vector<Attribute>& getList() const {
@@ -884,9 +885,6 @@ class Item : virtual public Thing
 		bool isRotatable() const {
 			const ItemType& it = items[id];
 			return it.rotatable && it.rotateTo;
-		}
-		bool isWrapable() const {
-			return (items[id].wrapableTo != 0);
 		}
 		bool hasWalkStack() const {
 			return items[id].walkStack;

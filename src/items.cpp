@@ -1,6 +1,6 @@
 /**
  * The Forgotten Server - a free and open-source MMORPG server emulator
- * Copyright (C) 2019  Mark Samman <mark.samman@gmail.com>
+ * Copyright (C) 2020 Mark Samman <mark.samman@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,8 +40,6 @@ const std::unordered_map<std::string, ItemParseAttributes_t> ItemParseAttributes
 	{"extradef", ITEM_PARSE_EXTRADEF},
 	{"attack", ITEM_PARSE_ATTACK},
 	{"rotateto", ITEM_PARSE_ROTATETO},
-	{"wrapableto", ITEM_PARSE_WRAPABLETO},
-	{"unwrapableto", ITEM_PARSE_WRAPABLETO},
 	{"moveable", ITEM_PARSE_MOVEABLE},
 	{"movable", ITEM_PARSE_MOVEABLE},
 	{"blockprojectile", ITEM_PARSE_BLOCKPROJECTILE},
@@ -597,12 +595,7 @@ void Items::parseItemNode(const pugi::xml_node& itemNode, uint16_t id)
 				}
 
 				case ITEM_PARSE_ROTATETO: {
-					it.rotateTo = pugi::cast<uint16_t>(valueAttribute.value());
-					break;
-				}
-
-				case ITEM_PARSE_WRAPABLETO: {
-					it.wrapableTo = pugi::cast<uint16_t>(valueAttribute.value());
+					it.rotateTo = pugi::cast<int32_t>(valueAttribute.value());
 					break;
 				}
 
